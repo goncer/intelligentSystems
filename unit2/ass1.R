@@ -1,1 +1,6 @@
 setwd("/home/gonzo/workspace/R/intelligent/intelligentSystems/unit2")
+library(tm)
+library(ggplot2)
+library(wordcloud)
+library(RWeka)
+library(reshape2)
