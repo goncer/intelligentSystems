@@ -1,3 +1,16 @@
+---
+title: "Gonzalo Del Cerro Morera - Annotation - 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Corpus annotation
+
+```{r Corpus annotations script}
+
 getwd()
 setwd("/home/gonzo/workspace/R/intelligent/intelligentSystems/unit2")
 library(rJava)
@@ -41,33 +54,45 @@ getAnnotatedPlainTextDocument = function(doc,annotations){
 source.pos = DirSource("/home/gonzo/workspace/R/intelligent/intelligentSystems/unit2/txt_sentoken/pos",
                        encoding = "UTF-8", pattern="(cv42[0-9]_[0-9]+.\\w*)")
 corpus = Corpus(source.pos)
-corpus[[1]]
 annotations = lapply(corpus, getAnnotationsFromDocument)
 
-head(annotations[[1]])
-tail(annotations[[1]])
-
-
 corpus.tagged = Map(getAnnotatedPlainTextDocument, corpus, annotations)
-corpus.tagged[[1]] 
-
 corpus.taggedText = Map(getAnnotatedMergedDocument, corpus, annotations)
-corpus.taggedText[[1]] 
 
 #Geet the first document
 doc = corpus.tagged[[1]] 
-doc
-
-strsplit(as.character(doc), "#", fixed = FALSE, perl = FALSE, useBytes = FALSE)[1]
-
-head(words(doc),2)
+#as.character(doc)
+#head(words(doc))
 sentences = 2
 head(sents(doc),sentences)
-head(tagged_words(doc))
+#head(tagged_words(doc))
+head(tagged_sents(doc),sentences)
+##head(parsed_sents(doc),sentences)
+
+```
+
+## POS tagging evaluation
+
+###Errors found in :
+```{r conclusion first}
 head(tagged_sents(doc),2)[1]
-head(parsed_sents(doc),sentences)
-asd = tagged_sents(doc)[2]
-length (asd)
+
+```
+square/JJ should be a /NN . Its part of the company name.
+final/JJ should be a /NN . Its the name of the film. 
+groundbreaking/NN should be a /JJ. Its an Ajd.
+
+```{r conclusion sec}
+head(tagged_sents(doc),2)[2]
+```
+deserved/VBN is a JJ, Is telling us how is the release.
+
+## Conclusion
+
+From 62 words, the algorithm seems to be failed in 4 False positives. 
+
+```{r pressure, echo=FALSE}
+
 slices <- c(58 ,4)
 lbls <- c("True positive ", "False Positive")
 pct <- round(slices/sum(slices)*100)
@@ -75,6 +100,9 @@ lbls <- paste(lbls, pct) # add percents to labels
 lbls <- paste(lbls,"%",sep="") # ad % to labels 
 pie(slices, labels = lbls, main="Pie Chart of Countries")
 
-precision = 58 / (58 + 4)
+```
+
+##With a precision of: 
+```{r conclusion tree}
 precision = 58 / (58 + 4) 
-precision
+```
