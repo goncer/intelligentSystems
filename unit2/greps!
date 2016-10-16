@@ -1,0 +1,1 @@
+grep -o -P '.{0,40}director/NN.{0,40}'  ../../taggedText.csv

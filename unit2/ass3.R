@@ -160,7 +160,7 @@ mergeGoldStandardInLists = function (df) {
   return (allMatches)
 }
 
-calculateMetrics = function (matches, matches.gs) {
+calculateMetrics = function (matches, matches.gs, seeDifferences = FALSE) {
   
   metrics<- data.frame(matrix(NA, ncol = 3, nrow = 1))
   names(metrics) <- c("Precision","Recall","Fmeasure")
@@ -176,8 +176,12 @@ calculateMetrics = function (matches, matches.gs) {
       intersection = intersect(l, l.gs)
       numCorrect = numCorrect + length(intersect(l, l.gs))
       allAnswers = allAnswers + length (l)
-      possibleAnswers = possibleAnswers + length(l.gs)    
+      possibleAnswers = possibleAnswers + length(l.gs)
+      #GonCer:To check wich names doe snot mach, place for improvements,new regex to be created!.
+      if(seeDifferences)
+        print(paste("differences in: " , setdiff(l, l.gs),setdiff(l.gs, l )))
     }
+   
   }
   
   metrics$Precision = numCorrect / allAnswers
@@ -189,9 +193,149 @@ calculateMetrics = function (matches, matches.gs) {
   
   return(metrics)
 }
+ptm00 <- proc.time()
 
 source.pos = DirSource("./txt_sentoken/pos", encoding = "UTF-8")
+#source.pos = DirSource("./txt_sentoken/pos",
+#                       encoding = "UTF-8", pattern="(cv42[0-9]_[0-9]+.\\w*)")
+
 corpus = Corpus(source.pos)
 corpus[[1]]
-annotations = lapply(corpus, getAnnotationsFromDocument)
+##Avoid reload all files again!.
+if ( length(annotations) <= 0 )
+  annotations = lapply(corpus, getAnnotationsFromDocument)
+head(annotations[[1]])
+tail(annotations[[1]])
+corpus.tagged = Map(getAnnotatedPlainTextDocument, corpus, annotations)
+corpus.tagged[[1]] 
+corpus.taggedText = Map(getAnnotatedMergedDocument, corpus, annotations)
+corpus.taggedText[[1]] 
+
+
+
+goldStandard = read.table(file = "./goldStandard.csv", quote = "", na.strings=c(""),
+                          colClasses="character", sep=";")
+
+differenceAntations = proc.time() - ptm00
+differenceAntations
+
+#simple by topc.
+
+ptm <- proc.time()
+
+pattern0=c("created by")
+pattern0=c(pattern0,"screenwriter[s]?")
+pattern0=c(pattern0,"cinematographer")
+pattern0=c(pattern0,"oscar winner")
+matches0 = detectPatternsInCorpus(corpus, pattern0)
+matches0[!is.na(matches0[3]),c(1,3)]
+entityCountPerPattern = countMatchesPerRow(matches0) 
+countMatchesPerColumn(matches0) 
+
+for (i in 1:length(pattern0)){
+  print(paste("PATTERN: ",pattern0[i]))
+  strings = lapply(corpus, detectPatternOnDocumentWithContext, pattern=pattern0[i])
+  print(unlist(strings[!is.na(unlist(strings))]))
+  print(" ")
+}
+
+write.table(matches0, file = "matches0.csv", row.names = F, na="", sep=";")
+matches0 = mergeAllMatchesInLists(matches0)
+head(matches0)
+
+
+allMatchesGold = mergeGoldStandardInLists(goldStandard)
+head(allMatchesGold)
+metrics0 = calculateMetrics(matches0, allMatchesGold)
+metrics0
+
+
+##FindEntitites:
+pattern1=c("created by ([A-z]* [A-z]*)")
+pattern1=c(pattern1,"created by [A-z]* [A-z]* \\( and ([A-z]* [A-z]*)")
+pattern1=c(pattern1,"screenwriter[s]? ([A-z]* [A-z]*)")
+pattern1=c(pattern1,"cinematographer(?: ,)? ([A-z]* [A-z]*)")
+pattern1=c(pattern1,"oscar winner ([A-z]* [A-z]*)")
+pattern1=c(pattern1,"co-star [A-z]* [A-z]*")
+pattern1=c(pattern1,"co-stars [A-z]* [A-z]* \\( and ([A-z]* [A-z]*)")
+
+matches1 = detectPatternsInCorpus(corpus, pattern1)
+matches1[!is.na(matches1[4]),c(1,4)]
+printMatchesPerPattern(pattern1, matches1)
+entityCountPerPattern =countMatchesPerRow(matches1) 
+countMatchesPerColumn(matches1) 
+
+write.table(matches1, file = "matches1.csv", row.names = F, na="", sep=";")
+matches1 = mergeAllMatchesInLists(matches1)
+head(matches1)
+
+allMatchesGold = mergeGoldStandardInLists(goldStandard)
+head(allMatchesGold)
+metrics1 = calculateMetrics(matches1, allMatchesGold)
+metrics1
+
+allMatchesGold = mergeGoldStandardInLists(goldStandard)
+
+##POS Taags
+pattern2 = ""
+pattern2=c("created/VBN by/IN ([A-z]*)/NN ([A-z]*)/NN")
+pattern2=c(pattern2,"created/VBN by/IN [A-z]*/NN [A-z]*/NN \\(/-LRB- and/CC ([A-z]*)/JJ ([A-z]*)/NN")
+pattern2=c(pattern2,"screenwriter[s]?/NN[S]? ([A-z]*)/(?:NN[S]?|JJ) ([A-z]*)/(?:NN|JJ)")
+pattern2=c(pattern2,"cinematographer/NN(?: ,/,)? ([A-z]*)/NN ([A-z]*)/NN")
+pattern2=c(pattern2,"cinematographer/NN(?: ,/,)? ([A-z]*)/NN ([A-z]*)/IN ([A-z]*)/NN")
+pattern2=c(pattern2,"oscar/NN winner/NN ([A-z]*)/VBG ([A-z]*)/NNS")
+
+
+
+allEntities = detectPatternsInTaggedCorpus(corpus, corpus.taggedText, pattern2)
+allMatches = mergeAllMatchesInLists(allEntities)
+metrics = calculateMetrics(allMatches, allMatchesGold,FALSE)
+metrics
+
+##extra tags:
+pattern2=c(pattern2,"co-star/JJ ([A-z]*)/NN ([A-z]*)/NN")
+allEntities = detectPatternsInTaggedCorpus(corpus, corpus.taggedText, pattern2)
+allMatches = mergeAllMatchesInLists(allEntities)
+metrics = calculateMetrics(allMatches, allMatchesGold,FALSE)
+metrics
+
+##co-stars/NNS matt/NN damon/NN
+pattern2=c(pattern2, "co-stars/NNS [A-z]*/NN [A-z]*/NN and/CC ([A-z]*)/NN ([A-z]*)/NN")
+pattern2=c(pattern2, "co-stars/NNS ([A-z]*)/NN ([A-z]*)/NN and/CC [A-z]*/NN [A-z]*/NN")
+
+allEntities = detectPatternsInTaggedCorpus(corpus, corpus.taggedText, pattern2)
+allMatches = mergeAllMatchesInLists(allEntities)
+metrics = calculateMetrics(allMatches, allMatchesGold,FALSE)
+metrics
+
+##director/NN bruce/NN beresford/NN
+pattern2=c(pattern2,"director/NN ([A-z]*)/NN ([A-z]*)/NN")
+
+allEntities = detectPatternsInTaggedCorpus(corpus, corpus.taggedText, pattern2)
+allMatches = mergeAllMatchesInLists(allEntities)
+metrics = calculateMetrics(allMatches, allMatchesGold,FALSE)
+metrics
+
+
+
+#allEntities[!is.na(allEntities[4]),c(1,4)]
+Filter(Negate(is.na),allEntities[[4]])
+printMatchesPerPattern(pattern2, allEntities)
+entityCountPerPattern = countMatchesPerColumn(allEntities)
+#entityCountPerPattern
+
+hist(entityCountPerPattern$Count)
+entityCountPerFile=countMatchesPerRow(allEntities)
+entityCountPerFile
+hist(entityCountPerFile$Count)
+
+write.table(allEntities, file = "allEntities.csv", row.names = F, na="", sep=";")
+allMatches = mergeAllMatchesInLists(allEntities)
+head(allMatches)
+
+
+allMatchesGold = mergeGoldStandardInLists(goldStandard)
+head(allMatchesGold)
+metrics = calculateMetrics(allMatches, allMatchesGold,FALSE)
+metrics
 
